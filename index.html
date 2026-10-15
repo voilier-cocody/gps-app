@@ -30,7 +30,7 @@
         font-size: 16px; font-weight: 600; margin-top: 10px; cursor: pointer;
       }
       .big {
-        width: 100%; padding: 13px; border: none; border-radius: 10px;
+        width: 100%; padding: 16px; border: none; border-radius: 12px;
         font-size: 16px; font-weight: 600; cursor: pointer;
         background: #2563eb; color: #fff;
       }
@@ -57,24 +57,48 @@
 		  justify-content: center;
 		  align-items: center;
 		}
+		
+		.mon-icone-marqueur svg {
+    width: 60px; /* Taille de l'icône */
+    height: 60px;
+    fill: #e74c3c; /* Couleur rouge d'origine */
+    display: block;
+    
+    /* Conserve l'effet d'ombre douce que vous aviez sur la carte */
+    filter: drop-shadow(0px 3px 4px rgba(0, 0, 0, 0.3)); 
+    
+    transition: all 0.3s ease; /* Optionnel : pour adoucir les changements de couleur */
+}
+
 
     </style>
   </head>
   <body>
+
+	    <span class="mon-icone-marqueur">
+  <svg viewBox="0 0 24 24" xmlns="http://w3.org">
+    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+  </svg>
+</span>
     <div class="card">
-      <h1>Ma position → GitHub</h1>
-	  </br>
+
       <div id="status"><span class="dot off" id="dot"></span><span id="stateText">Recherche de position…</span></div>
       <div id="live">—</div>
       <button class="ghost" id="refresh">Rafraîchir ma position</button>
     </div>
 	
 	<div class="card">
-      <button class="big" id="send">Envoyer ma position</button>
-	  </br>
-	 <div id="log"></div>
-    </div>
+      <button class="big"  id="send">📤 Mettre à jour ma position sur le blog</button>
+
+
 	
+	</div>
+ 
+	
+	<div class="card">
+		 <div id="log"></div>
+	   </div>
+	   
 	<div class="card">
 	<button class="ghost" id="toggleConfig" style="font-size: 16px; padding: 8px; margin-top: 12px;">⚙️ Configurer l'application</button>
 

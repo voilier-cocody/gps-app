@@ -1,1 +1,242 @@
-test
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Ma position → GitHub</title>
+    <style>
+      :root {
+        font-family: -apple-system, system-ui, sans-serif;
+        background: #0b1220;
+        color: #e5eaf3;
+      }
+      body { margin: 0; padding: 16px; padding-bottom: 40px; }
+      .card {
+        background: #131c2e;
+        border: 1px solid #26324a;
+        border-radius: 14px;
+        padding: 14px;
+        margin-bottom: 14px;
+      }
+      h1 { font-size: 20px; margin: 4px 0 2px; }
+      h1 span { opacity: .6; font-weight: 400; font-size: 14px; }
+      label { display: block; font-size: 12px; opacity: .7; margin: 10px 0 4px; }
+      input {
+        width: 100%; box-sizing: border-box; padding: 10px; border-radius: 8px;
+        border: 1px solid #33415e; background: #0b1220; color: #e5eaf3; font-size: 14px;
+      }
+      button {
+        width: 100%; padding: 13px; border: none; border-radius: 10px;
+        font-size: 16px; font-weight: 600; margin-top: 10px; cursor: pointer;
+      }
+      .big {
+        width: 100%; padding: 18px; border: none; border-radius: 12px;
+        font-size: 18px; font-weight: 700; cursor: pointer;
+        background: #2563eb; color: #fff;
+      }
+      .big:disabled { background: #33415e; color: #94a3b8; }
+      .ghost { background: #26324a; color: #e5eaf3; }
+      #status { font-size: 13px; opacity: .8; min-height: 18px; }
+      .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+      .on { background: #16a34a; box-shadow: 0 0 8px #16a34a; }
+      .pending { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+      .off { background: #64748b; }
+      #log { font-family: ui-monospace, monospace; font-size: 12px; max-height: 220px; overflow-y: auto; line-height: 1.7; }
+      .ok { color: #4ade80; } .err { color: #f87171; } .info { color: #94a3b8; }
+      #live { font-size: 13px; opacity: .85; line-height: 1.6; }
+      .note { font-size: 12px; opacity: .6; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>📍 Ma position <span>→ GitHub</span></h1>
+      <div id="status"><span class="dot off" id="dot"></span><span id="stateText">Recherche de position…</span></div>
+      <div id="live">—</div>
+    </div>
+
+    <div class="card">
+      <label>Token GitHub (fine-grained PAT, permission Contents: Read &amp; Write)</label>
+      <input id="token" type="password" placeholder="github_pat_..." />
+      <label>Dépôt (owner/nom-du-repo)</label>
+      <input id="repo" placeholder="laurent/trackings" />
+      <label>Branche</label>
+      <input id="branch" value="main" />
+      <label>Fichier de trace</label>
+      <input id="file" value="tracks/track.geojson" />
+      <button class="ghost" id="save">💾 Sauver la config</button>
+    </div>
+
+    <div class="card">
+      <button class="big" id="send">📤 Envoyer ma position</button>
+    </div>
+
+    <div class="card">
+      <div id="log"></div>
+    </div>
+
+    <div class="card note">
+      💡 Astuce : « Ajouter à l'écran d'accueil » depuis Safari pour l'utiliser
+      comme une vraie app. Le token est stocké uniquement sur ton téléphone.
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const cfgKeys = ["token", "repo", "branch", "file"];
+
+      // Chargement config sauvegardée
+      cfgKeys.forEach((k) => {
+        const v = localStorage.getItem("gt_" + k);
+        if (v !== null) $(k).value = v;
+      });
+
+      $("save").onclick = () => {
+        cfgKeys.forEach((k) => localStorage.setItem("gt_" + k, $(k).value));
+        log("Config sauvegardée ✓", "ok");
+      };
+
+      const log = (msg, cls = "info") => {
+        const t = new Date().toLocaleTimeString("fr-FR");
+        const d = document.createElement("div");
+        d.className = cls;
+        d.textContent = `[${t}] ${msg}`;
+        $("log").prepend(d);
+      };
+
+      function setStatus(state, text) {
+        $("dot").className = "dot " + state;
+        $("stateText").textContent = text;
+      }
+
+      // ---- GitHub API ----
+      const gh = (path, opts = {}) =>
+        fetch("https://api.github.com" + path, {
+          ...opts,
+          headers: {
+            Authorization: "Bearer " + $("token").value.trim(),
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            ...(opts.headers || {}),
+          },
+        });
+
+      async function readFile(path) {
+        const r = await gh(
+          `/repos/${$("repo").value.trim()}/contents/${path}?ref=${$("branch").value.trim()}`
+        );
+        if (r.status === 404) return null;
+        if (!r.ok) throw new Error("lecture " + r.status);
+        const j = await r.json();
+        return { sha: j.sha, content: decodeBase64(j.content) };
+      }
+
+      function decodeBase64(b64) {
+        const bin = atob(b64.replace(/\n/g, ""));
+        const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+        return new TextDecoder().decode(bytes);
+      }
+
+      function encodeBase64(str) {
+        const bytes = new TextEncoder().encode(str);
+        let bin = "";
+        bytes.forEach((b) => (bin += String.fromCharCode(b)));
+        return btoa(bin);
+      }
+
+      async function writeFile(path, content, sha) {
+        const r = await gh(`/repos/${$("repo").value.trim()}/contents/${path}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: "📍 GPS point " + new Date().toISOString(),
+            content: encodeBase64(content),
+            sha: sha || undefined,
+            branch: $("branch").value.trim(),
+          }),
+        });
+        if (!r.ok) throw new Error("écriture " + r.status + " " + (await r.text()).slice(0, 120));
+      }
+
+      // ---- GeoJSON ----
+      function addToGeoJSON(existing, coords, props) {
+        const gj = existing || {
+          type: "FeatureCollection",
+          features: [],
+        };
+        gj.features.push({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [coords.lon, coords.lat] },
+          properties: props,
+        });
+        return gj;
+      }
+
+      // ---- GPS ----
+      let lastFix = null;
+
+      function getPosition() {
+        return new Promise((resolve, reject) => {
+          if (!navigator.geolocation) return reject(new Error("Geolocation non dispo"));
+          navigator.geolocation.getCurrentPosition(
+            (p) => resolve(p.coords),
+            (e) => reject(new Error("GPS: " + e.message)),
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+          );
+        });
+      }
+
+      async function sendPoint() {
+        if ($("send").disabled) return;
+        const missing = cfgKeys.filter((k) => !$(k).value.trim());
+        if (missing.length) return log("Config incomplète: " + missing.join(", "), "err");
+        $("send").disabled = true;
+        $("send").textContent = "⏳ Localisation puis envoi…";
+        try {
+          const coords = await getPosition();
+          const { accuracy, speed, heading } = coords;
+          $("live").innerHTML =
+            `Lat ${coords.latitude.toFixed(5)} · Lon ${coords.longitude.toFixed(5)}<br>` +
+            `Précision ±${Math.round(accuracy)} m`;
+          const path = $("file").value.trim().replace(/^\/+/, "");
+          const existing = await readFile(path);
+          const gj = addToGeoJSON(existing ? JSON.parse(existing.content) : null, {
+            lat: coords.latitude,
+            lon: coords.longitude,
+          }, {
+            time: new Date().toISOString(),
+            accuracy,
+            speed: speed ?? null,
+            heading: heading ?? null,
+          });
+          await writeFile(path, JSON.stringify(gj, null, 2), existing ? existing.sha : null);
+          log(`Envoyé ✓ (${gj.features.length} points dans ${path})`, "ok");
+          setStatus("on", "Position envoyée ✓");
+        } catch (e) {
+          log("Erreur: " + e.message, "err");
+          setStatus("pending", "Échec — réessaie");
+        } finally {
+          $("send").disabled = false;
+          $("send").textContent = "📤 Envoyer ma position";
+        }
+      }
+
+      $("send").onclick = sendPoint;
+
+      // Localisation automatique à l'ouverture
+      setStatus("pending", "Recherche de position…");
+      getPosition()
+        .then((c) => {
+          lastFix = c;
+          $("live").innerHTML =
+            `Lat ${c.latitude.toFixed(5)} · Lon ${c.longitude.toFixed(5)}<br>` +
+            `Précision ±${Math.round(c.accuracy)} m`;
+          setStatus("on", "Position trouvée — prête à envoyer");
+        })
+        .catch((e) => {
+          $("live").textContent = "—";
+          setStatus("off", "GPS indisponible: " + e.message);
+        });
+
+      log("Prêt. Configure le dépôt puis « Envoyer ma position ».", "info");
+    </script>
+  </body>
+</html>

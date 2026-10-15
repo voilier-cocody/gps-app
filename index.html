@@ -52,6 +52,7 @@
       <h1>📍 Ma position <span>→ GitHub</span></h1>
       <div id="status"><span class="dot off" id="dot"></span><span id="stateText">Recherche de position…</span></div>
       <div id="live">—</div>
+      <button class="ghost" id="refresh">🔄 Rafraîchir la position</button>
     </div>
 
     <div class="card">
@@ -206,22 +207,36 @@
         }
       }
 
-      $("send").onclick = sendPoint;
-
-      // Localisation automatique à l'ouverture
-      setStatus("pending", "Recherche de position…");
-      getPosition()
-        .then((c) => {
+      async function refreshPosition() {
+        if ($("refresh").disabled) return;
+        $("refresh").disabled = true;
+        $("refresh").textContent = "⏳ Recherche…";
+        setStatus("pending", "Recherche de position…");
+        try {
+          const c = await getPosition();
           lastFix = c;
           $("live").innerHTML =
-            `Lat ${c.latitude.toFixed(5)} · Lon ${c.longitude.toFixed(5)}<br>` +
+            `Lat ${c.latitude.toFixed(6)} · Lon ${c.longitude.toFixed(6)}<br>` +
             `Précision ±${Math.round(c.accuracy)} m`;
           setStatus("on", "Position trouvée — prête à envoyer");
-        })
-        .catch((e) => {
-          $("live").textContent = "—";
+        } catch (e) {
           setStatus("off", "GPS indisponible: " + e.message);
-        });
+        } finally {
+          $("refresh").disabled = false;
+          $("refresh").textContent = "🔄 Rafraîchir la position";
+        }
+      }
+
+      $("refresh").onclick = refreshPosition;
+      $("send").onclick = sendPoint;
+
+      // Re-localisation auto quand on revient dans l'app
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") refreshPosition();
+      });
+
+      // Localisation automatique à l'ouverture
+      refreshPosition();
 
       log("Prêt. Configure le dépôt puis « Envoyer ma position ».", "info");
     </script>

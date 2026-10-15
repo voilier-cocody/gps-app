@@ -61,8 +61,8 @@
       <input id="repo" placeholder="laurent/trackings" />
       <label>Branche</label>
       <input id="branch" value="main" />
-      <label>Fichier de trace</label>
-      <input id="file" value="tracks/track.geojson" />
+      <label>Fichier de position (écrasé à chaque envoi)</label>
+      <input id="file" value="location.json" />
       <button class="ghost" id="save">💾 Sauver la config</button>
     </div>
 
@@ -156,18 +156,13 @@
         if (!r.ok) throw new Error("écriture " + r.status + " " + (await r.text()).slice(0, 120));
       }
 
-      // ---- GeoJSON ----
-      function addToGeoJSON(existing, coords, props) {
-        const gj = existing || {
-          type: "FeatureCollection",
-          features: [],
+      // ---- Position (format simple, écrasement du fichier) ----
+      function buildPayload(coords) {
+        return {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          date: new Date().toISOString(),
         };
-        gj.features.push({
-          type: "Feature",
-          geometry: { type: "Point", coordinates: [coords.lon, coords.lat] },
-          properties: props,
-        });
-        return gj;
       }
 
       // ---- GPS ----
@@ -192,23 +187,15 @@
         $("send").textContent = "⏳ Localisation puis envoi…";
         try {
           const coords = await getPosition();
-          const { accuracy, speed, heading } = coords;
+          const { accuracy } = coords;
           $("live").innerHTML =
-            `Lat ${coords.latitude.toFixed(5)} · Lon ${coords.longitude.toFixed(5)}<br>` +
+            `Lat ${coords.latitude.toFixed(6)} · Lon ${coords.longitude.toFixed(6)}<br>` +
             `Précision ±${Math.round(accuracy)} m`;
           const path = $("file").value.trim().replace(/^\/+/, "");
-          const existing = await readFile(path);
-          const gj = addToGeoJSON(existing ? JSON.parse(existing.content) : null, {
-            lat: coords.latitude,
-            lon: coords.longitude,
-          }, {
-            time: new Date().toISOString(),
-            accuracy,
-            speed: speed ?? null,
-            heading: heading ?? null,
-          });
-          await writeFile(path, JSON.stringify(gj, null, 2), existing ? existing.sha : null);
-          log(`Envoyé ✓ (${gj.features.length} points dans ${path})`, "ok");
+          const existing = await readFile(path); // récupère le sha pour l'écrasement
+          const payload = buildPayload(coords);
+          await writeFile(path, JSON.stringify(payload, null, 2), existing ? existing.sha : null);
+          log(`Envoyé ✓ — ${path} écrasé (${payload.date})`, "ok");
           setStatus("on", "Position envoyée ✓");
         } catch (e) {
           log("Erreur: " + e.message, "err");

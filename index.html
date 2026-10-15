@@ -30,8 +30,8 @@
         font-size: 16px; font-weight: 600; margin-top: 10px; cursor: pointer;
       }
       .big {
-        width: 100%; padding: 18px; border: none; border-radius: 12px;
-        font-size: 18px; font-weight: 700; cursor: pointer;
+        width: 100%; padding: 13px; border: none; border-radius: 10px;
+        font-size: 16px; font-weight: 600; cursor: pointer;
         background: #2563eb; color: #fff;
       }
       .big:disabled { background: #33415e; color: #94a3b8; }
@@ -43,19 +43,42 @@
       .off { background: #64748b; }
       #log { font-family: ui-monospace, monospace; font-size: 12px; max-height: 220px; overflow-y: auto; line-height: 1.7; }
       .ok { color: #4ade80; } .err { color: #f87171; } .info { color: #94a3b8; }
-      #live { font-size: 13px; opacity: .85; line-height: 1.6; }
+      #live { font-size: 20px; opacity: .85; line-height: 1.6; }
       .note { font-size: 12px; opacity: .6; line-height: 1.5; }
+	  .hidden { display: none; }
+	  /* Centre le titre, le point d'état et les coordonnées GPS */
+		.card h1, #status, #live {
+		  text-align: center;
+		}
+
+		/* Centre le point lumineux verticalement avec le texte de statut */
+		#status {
+		  display: flex;
+		  justify-content: center;
+		  align-items: center;
+		}
+
     </style>
   </head>
   <body>
     <div class="card">
-      <h1>📍 Ma position <span>→ GitHub</span></h1>
+      <h1>Ma position → GitHub</h1>
+	  </br>
       <div id="status"><span class="dot off" id="dot"></span><span id="stateText">Recherche de position…</span></div>
       <div id="live">—</div>
-      <button class="ghost" id="refresh">🔄 Rafraîchir la position</button>
+      <button class="ghost" id="refresh">Rafraîchir ma position</button>
     </div>
+	
+	<div class="card">
+      <button class="big" id="send">Envoyer ma position</button>
+	  </br>
+	 <div id="log"></div>
+    </div>
+	
+	<div class="card">
+	<button class="ghost" id="toggleConfig" style="font-size: 16px; padding: 8px; margin-top: 12px;">⚙️ Configurer l'application</button>
 
-    <div class="card">
+    <div class="card" id="configCard">
       <label>Token GitHub (fine-grained PAT, permission Contents: Read &amp; Write)</label>
       <input id="token" type="password" placeholder="github_pat_..." />
       <label>Dépôt (owner/nom-du-repo)</label>
@@ -67,18 +90,10 @@
       <button class="ghost" id="save">💾 Sauver la config</button>
     </div>
 
-    <div class="card">
-      <button class="big" id="send">📤 Envoyer ma position</button>
-    </div>
+   </div>
 
-    <div class="card">
-      <div id="log"></div>
-    </div>
+ 
 
-    <div class="card note">
-      💡 Astuce : « Ajouter à l'écran d'accueil » depuis Safari pour l'utiliser
-      comme une vraie app. Le token est stocké uniquement sur ton téléphone.
-    </div>
 
     <script>
       const $ = (id) => document.getElementById(id);
@@ -89,6 +104,14 @@
         const v = localStorage.getItem("gt_" + k);
         if (v !== null) $(k).value = v;
       });
+	  
+		let hasConfig = true;
+		cfgKeys.forEach((k) => {
+		  if (localStorage.getItem("gt_" + k) === null) hasConfig = false;
+		});
+		if (hasConfig && $("token").value.trim() !== "") {
+		  $("configCard").classList.add("hidden");
+		}
 
       $("save").onclick = () => {
         cfgKeys.forEach((k) => localStorage.setItem("gt_" + k, $(k).value));
@@ -183,7 +206,10 @@
       async function sendPoint() {
         if ($("send").disabled) return;
         const missing = cfgKeys.filter((k) => !$(k).value.trim());
-        if (missing.length) return log("Config incomplète: " + missing.join(", "), "err");
+		if (missing.length) {
+		  $("configCard").classList.remove("hidden");
+		  return log("Config incomplète: " + missing.join(", "), "err");
+		}
         $("send").disabled = true;
         $("send").textContent = "⏳ Localisation puis envoi…";
         try {
@@ -203,7 +229,7 @@
           setStatus("pending", "Échec — réessaie");
         } finally {
           $("send").disabled = false;
-          $("send").textContent = "📤 Envoyer ma position";
+          $("send").textContent = "Envoyer ma position";
         }
       }
 
@@ -223,12 +249,16 @@
           setStatus("off", "GPS indisponible: " + e.message);
         } finally {
           $("refresh").disabled = false;
-          $("refresh").textContent = "🔄 Rafraîchir la position";
+          $("refresh").textContent = "Rafraîchir la position";
         }
       }
 
       $("refresh").onclick = refreshPosition;
       $("send").onclick = sendPoint;
+	  $("toggleConfig").onclick = () => {
+		  $("configCard").classList.toggle("hidden");
+		};
+		$("configCard").classList.add("hidden");
 
       // Re-localisation auto quand on revient dans l'app
       document.addEventListener("visibilitychange", () => {
